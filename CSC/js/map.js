@@ -18,6 +18,7 @@ var tb;
         "esri/symbols/SimpleFillSymbol",
         "esri/symbols/SimpleLineSymbol",
         "esri/symbols/SimpleMarkerSymbol",
+        "esri/tasks/query",
         "esri/tasks/IdentifyTask",
         "esri/tasks/IdentifyParameters",
         "esri/dijit/Popup",
@@ -41,7 +42,7 @@ var tb;
         function(
           Map, on,  dom, Extent, ArcGISDynamicMapServiceLayer, FeatureLayer, BasemapGallery,
           Scalebar, Legend, PopupMobile, Search, OverviewMap, parser, Draw, Graphic,
-          SimpleFillSymbol, SimpleLineSymbol, SimpleMarkerSymbol, IdentifyTask, IdentifyParameters, Popup, InfoTemplate, 
+          SimpleFillSymbol, SimpleLineSymbol, SimpleMarkerSymbol, Query, IdentifyTask, IdentifyParameters, Popup, InfoTemplate, 
           Memory, locale,
           Color, declare, array, Grid, Selection,
           TabContainer, ContentPane, BorderContainer, Button, 
@@ -80,7 +81,9 @@ var tb;
             opacity : 0.5,
         });
         var CiudadesUSA = new FeatureLayer("http://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer/0");
-        
+
+        var statesLayer = new FeatureLayer("http://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer/2");
+
         // Añadir datos al Mapa
         map.addLayer (USAdatos);
         map.addLayer(CiudadesUSA);
@@ -92,7 +95,7 @@ var tb;
           }, "basemapgalleryContenedor");
           SelectorMapas.startup();
 
-        // Añadir Escala
+        // Añadir Escala sobre el mapa, abajo a la izquierda en metros y millas
         var Scala = new Scalebar({
             map: map,
             scalebarUnit: "dual",
@@ -119,7 +122,7 @@ var tb;
        var  dijitSearch = new Search({
             map: map,
             autoComplete: true
-        }, "dtb1");
+        },"BuscadorGen");
         dijitSearch.startup();
 
         // Añadir Visor general
@@ -129,16 +132,18 @@ var tb;
         }, "VGeneral");
         VisionGeneral.startup();
 
-        // Añadir herramientas de selección y dibujo
-        map.on("pintaYQuery",initDrawTool);
 
-        function initDrawTool() {
+
+        // Añadir herramientas de selección y dibujo
+        map.on("pintaYQuery",fPintaYQuery);
+
+        function fPintaYQuery() {
                 /*
                  * Step: Implement the Draw toolbar
                  */
-          var tbDraw = new Draw (map);
-          tbDraw.on("draw-end", displayPolygon);
-          tbDraw.activate(Draw.POLYGON);
+          var tb = new Draw (map);
+          tb.on("draw-end", displayPolygon);
+          tb.activate(Draw.POLYGON);
         }
 
         function displayPolygon(evt) {
@@ -174,6 +179,21 @@ var tb;
             }
           });
         }
+
+        // Añadir Tarea Selector de estados (busqueda)
+        map.on("progButtonNode",fQueryEstados);
+        
+        function fQueryEstados () {
+          var SelectorEstados = dojo.byId("dtb").value;
+
+
+          var queryState = new Query ();
+            queryState.where= "STATE_NAME ="+SelectorEstados;
+
+          statesLayer.selectFeatures(queryState)
+        }
+
+
         // Añadir Tarea Identify
         var identifyTask, identifyParams;
         var IDpop = new Popup ({
