@@ -44,22 +44,28 @@
      #BMGyVG{ 
       display: flex;
       order: 3;
+      width: auto;
       height:100px;
-      overflow:auto;
       }
 
       #basemapgalleryContenedor {
         font-size:8pt; 
+        width: auto;
         overflow:auto;
       }
 
       #VGeneral {
-        width: 100px;
+        width: 200px;
       }
 
       #BuscadorGen {
-        width: 100px;
+        width: 200px;
       }
+      #cpBottom {
+        height: 100px;
+      }
+
+
 
 
       #footer {

@@ -30,6 +30,7 @@ var tb;
         "dojo/_base/Color",
         "dojo/_base/declare",
         "dojo/_base/array",
+
         "dgrid/OnDemandGrid",
         "dgrid/Selection",
 
@@ -53,10 +54,26 @@ var tb;
 
         on(dojo.byId("pintaYQuery"),"click",fPintaYQuery);
         on(dojo.byId("progButtonNode"),"click",fQueryEstados);
+        on(dojo.byId("BorrarSelecion"),"click",fborrarselecion);
 
         function fPintaYQuery(){
           alert("Evento del botón Ir a estado");
-        }
+        };
+        function fborrarselecion(){
+          mapPoint.clear();
+        };
+
+        // Initialize the dgrid
+        var gridCIUDADES = new (declare([Grid, Selection]))({
+          bufferRows: Infinity,
+          columns: {
+              AREANAME: "AreaName",
+              CLASS:"Class",
+              ST: "ST",
+              CAPITAL: "Capital"
+          }
+        }, "divGrid");
+
         function fQueryEstados(){
          alert("Evento del botón Seleccionar ciudades");
         }
@@ -73,16 +90,24 @@ var tb;
         // Create the map
         var map = new Map("map", {
         basemap: "topo",
-        extent : extensionnueva
+        extent : extensionnueva,
+        //infoWindow: popup
         });
 
         // Construct the USA layer
         var USAdatos = new ArcGISDynamicMapServiceLayer("http://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer/", {
             opacity : 0.5,
         });
-        var CiudadesUSA = new FeatureLayer("http://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer/0");
+        
+        var CiudadesUSA = new FeatureLayer("http://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer/0",{
+          outFields: outFieldsCiudades
+        });
 
-        var statesLayer = new FeatureLayer("http://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer/2");
+        var outFieldsCiudades = ["AREANAME", "CLASS", "ST", "CAPITAL"];
+
+        var statesLayer = new FeatureLayer("http://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer/2", {
+            outFields: ["state_name"]
+        });
 
         // Añadir datos al Mapa
         map.addLayer (USAdatos);
@@ -167,18 +192,63 @@ var tb;
         }
 
         function selectCiudad(geometryInput) {
-        // Define symbol for selected features
-          var symbolSelected = new SimpleMarkerSymbol({
-            "type": "esriSMS",
-            "style": "esriSMSCircle",
-            "color": [255, 115, 0, 128],
-            "size": 6,
-            "outline": {
-                "color": [255, 0, 0, 214],
-                "width": 1
-            }
-          });
+            // Define symbol for selected features
+              var symbolSelected = new SimpleMarkerSymbol({
+                "type": "esriSMS",
+                "style": "esriSMSCircle",
+                "color": [255, 115, 0, 128],
+                "size": 6,
+                "outline": {
+                    "color": [255, 0, 0, 214],
+                    "width": 1
+                }
+              });
+              /*
+              * Step: Set the selection symbol
+              */
+              CiudadesUSA.setSelectionSymbol(symbolSelected);
+
+              /*
+              * Step: Initialize the query
+              */
+              var BuscaCiudades = new Query();
+              BuscaCiudades.geometry = geometryInput;
+
+              /*
+              * Step: Wire the layer's selection complete event
+              */
+              CiudadesUSA.on("selection-complete", populateGrid);
+
+              /*
+              * Step: Perform the selection
+              */
+              CiudadesUSA.selectFeatures(BuscaCiudades, FeatureLayer.SELECTION_NEW);
+
         }
+
+        function populateGrid(results) { 
+            var gridData;
+
+            dataCiudad = array.map(results.features, function (feature) {
+                          return {
+                              /*
+                              * Step: Reference the attribute field values
+                              */
+                             "AreaName": feature.attributes[outFieldsCiudades[0]],
+                             "Class": feature.attributes[outFieldsCiudades[1]],
+                             "ST": feature.attributes[outFieldsCiudades[2]],
+                             "Capital": feature.attributes[outFieldsCiudades[3]],
+                          }
+                      });
+
+                      // Pass the data to the grid
+                      var memStore = new Memory({
+                          data: dataCiudad
+                      });
+                      gridCIUDADES.set("store", memStore);
+         }
+
+
 
         // Añadir Tarea Selector de estados (busqueda)
         map.on("progButtonNode",fQueryEstados);
@@ -188,9 +258,11 @@ var tb;
 
 
           var queryState = new Query ();
-            queryState.where= "STATE_NAME ="+SelectorEstados;
+            queryState.outFields = SelectorEstados;
 
-          statesLayer.selectFeatures(queryState)
+          statesLayer.selectFeatures(queryState, FeatureLayer.SELECTION_NEW, function(selection){
+            map.center();
+          });
         }
 
 
@@ -202,7 +274,6 @@ var tb;
               new Color([255, 0, 0]), 2), new Color([255, 255, 0, 0.25]))
         }, domConstruct.create("div"));
 
-    
         
         function mapReady () {
           map.on("click", executeIdentifyTask);
@@ -231,11 +302,18 @@ var tb;
 
                 feature.attributes.layerName = layerName;
                 if (layerName === 'States') {
-                  var Estados = new InfoTemplate("STATE_NAME","POP2000", "POP00_SQMI", "st_area");
-                  feature.setInfoTemplate(Estados);
+                  var EstadosTemplate = new PopupTemplate({
+                    title: "{STATE_NAME}",
+                    fieldInfos: [{
+                      POP2000: "POP2000",
+                      st_area: "st_area",
+                      visible: true
+                    }]
+                  })
+                  feature.setInfoTemplate(EstadosTemplate);
                 }
                 return feature;
-              });
+              });  
             });   
-          }; 
+        };
       });
